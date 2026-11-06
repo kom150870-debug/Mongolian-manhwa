@@ -1,0 +1,9 @@
+import{json,readSession,saveSession,sessionId,sameOrigin,prices,payReady,qpayRequest,randomId}from"../_lib/core.js";
+export async function onRequestPost({request,env}){if(!sameOrigin(request))return json({error:"Хүсэлт зөвшөөрөгдөөгүй"},403);const sid=sessionId(request);if(!sid)return json({error:"Хуудсаа сэргээж дахин оролдоно уу"},401);if(!payReady(env))return json({error:"QPay merchant эрх хараахан холбогдоогүй. Одоогоор төлбөр авахгүй."},503);try{const {plan}=await request.json();if(!prices[plan])return json({error:"Багц буруу"},400);const s=await readSession(env,sid);if(s.pendingOrder){const existing=await env.KINO_DB.get("order:"+s.pendingOrder,"json");if(existing&&existing.status==="pending"&&existing.plan===plan&&existing.createdAt>Date.now()-3600000)return json({orderId:existing.id,amount:existing.amount,qrImage:existing.qrImage,payUrl:existing.payUrl,urls:existing.urls});}
+const orderId=randomId(),amount=prices[plan].amount;
+const invoice=await qpayRequest(env,"/v2/invoice",{invoice_code:env.QPAY_INVOICE_CODE,sender_invoice_no:orderId,invoice_receiver_code:"terminal",invoice_description:"KINO AI - "+prices[plan].title,amount,callback_url:new URL("/api/qpay-callback?id="+encodeURIComponent(orderId),request.url).toString()});
+if(!invoice.invoice_id)throw Error("QPay invoice_id буцаасангүй");
+const order={id:orderId,sid,plan,amount,invoiceId:invoice.invoice_id,status:"pending",createdAt:Date.now(),qrImage:invoice.qr_image||"",payUrl:invoice.qPay_shortUrl||"",urls:invoice.urls||[]};
+await env.KINO_DB.put("order:"+orderId,JSON.stringify(order),{expirationTtl:86400});s.pendingOrder=orderId;await saveSession(env,sid,s);
+return json({orderId,amount,qrImage:order.qrImage,payUrl:order.payUrl,urls:order.urls});
+}catch(e){return json({error:"Төлбөрийн нэхэмжлэл үүссэнгүй: "+e.message},502)}}
