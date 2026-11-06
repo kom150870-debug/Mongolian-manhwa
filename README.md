@@ -1,2 +1,1 @@
-# Mongolian-manhwa
-Ajil
+
