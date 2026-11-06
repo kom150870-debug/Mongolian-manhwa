@@ -1,0 +1,2 @@
+import{json,readSession,settlePending}from"../_lib/core.js";
+export async function onRequest({request,env}){try{if(!env.KINO_DB)return json({ok:false},503);const id=new URL(request.url).searchParams.get("id");if(!id||!(/^[0-9a-f-]{36}$/i.test(id)))return json({ok:false},400);const order=await env.KINO_DB.get("order:"+id,"json");if(!order)return json({ok:true});const s=await readSession(env,order.sid);if(s.pendingOrder===id){await settlePending(env,order.sid,s)}return json({ok:true});}catch(e){return json({ok:true,pendingVerification:true})}}
