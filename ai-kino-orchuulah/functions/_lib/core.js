@@ -3,12 +3,13 @@ export const json=(body,status=200,extra={})=>new Response(JSON.stringify(body),
 export function sameOrigin(request){const o=request.headers.get("origin");return !o||o===new URL(request.url).origin}
 export const cookie=(sid)=>"kino_sid="+sid+"; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=2592000";
 export function sessionId(request){let x=(request.headers.get("cookie")||"").match(/(?:^|;\s*)kino_sid=([a-f0-9-]{36})/i);return x?.[1]||null}
-export function newSession(){return {credits:0,vipUntil:0,vipRemaining:0,processedOrders:[],pendingOrder:null,createdAt:Date.now()}}
+export function newSession(){return {credits:0,vipUntil:0,vipRemaining:0,trialUsed:false,processedOrders:[],pendingOrder:null,createdAt:Date.now()}}
 export function requireDB(env){if(!env.KINO_DB)throw Error("KINO_DB KV binding тохируулаагүй байна")}
 export async function readSession(env,sid){requireDB(env);return (await env.KINO_DB.get("session:"+sid,"json"))||newSession()}
 export async function saveSession(env,sid,data){await env.KINO_DB.put("session:"+sid,JSON.stringify(data),{expirationTtl:60*60*24*60})}
+export function trialAvailable(s){return !s.trialUsed?1:0}
 export function available(s){return Number(s.credits||0)+((s.vipUntil>Date.now())?Number(s.vipRemaining||0):0)}
-export function publicSession(s){return {credits:Number(s.credits||0),vipUntil:s.vipUntil||0,vipRemaining:s.vipUntil>Date.now()?Number(s.vipRemaining||0):0,pending:!!s.pendingOrder,available:available(s)}}
+export function publicSession(s){return {credits:Number(s.credits||0),vipUntil:s.vipUntil||0,vipRemaining:s.vipUntil>Date.now()?Number(s.vipRemaining||0):0,pending:!!s.pendingOrder,trialAvailable:trialAvailable(s),available:available(s)}}
 export const randomId=()=>crypto.randomUUID();
 export function payReady(env){return !!(env.QPAY_CLIENT_ID&&env.QPAY_CLIENT_SECRET&&env.QPAY_INVOICE_CODE&&env.QPAY_BASE_URL&&env.KINO_DB)}
 export function qpayBase(env){const b=env.QPAY_BASE_URL;if(!["https://merchant.qpay.mn","https://merchant-sandbox.qpay.mn"].includes(b))throw Error("QPAY_BASE_URL буруу");return b}
